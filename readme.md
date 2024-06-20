@@ -527,3 +527,18 @@ git commit -a -m "更新了配置文件"
 git remote add origin https://github.com/riyuejuyjyj/saas-rnd-sample.git
 git push -u origin main
 ```
+
+## 4.部署到railway
+
+首先修改一下settings.py
+
+```python
+DEBUG = True
+ALLOWED_HOSTS = [
+    ".railway.app" # https://saas.prod.railway.app
+]
+
+if DEBUG:
+    ALLOWED_HOSTS.append("127.0.0.1")
+```
+

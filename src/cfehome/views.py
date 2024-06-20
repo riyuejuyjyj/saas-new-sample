@@ -2,7 +2,11 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from visits.models import PageVisit
 
-def home_page_view(request,*args,**kwargs):
+
+def home_view(request,*args,**kwargs):
+    return about_view(request,*args,**kwargs)
+
+def about_view(request,*args,**kwargs):
     # request.path 就是访问的页面的路径 /
     queryset = PageVisit.objects.filter(path = request.path)
     my_title = "my page"
