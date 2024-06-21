@@ -663,3 +663,247 @@ if DATABASE_URL is not None:
 ```
 
 进入https://console.neon.tech/，创建后数据库以后将其url粘贴到DATABASE_URL，再创建一个dev分支用于本地测试使用，main用于部署使用
+
+## 5.配置静态文件下载命令
+
+为了方便以后下载静态文件js，css之类。
+
+```shell
+python manage.py startapp commando
+```
+
+创建一个用于新建命令的模块，在生成的模块根目录中创建management\commands两个文件夹，再创建__init__.py文件，==别忘了在settins.py中添加commando模块==
+
+在commands下创建hello_world.py，用于测试
+
+```python
+from django.core.management.base import BaseCommand
+
+class Command(BaseCommand):
+    def handle(self, *args, **options):
+        print("Hello World!")
+```
+
+此时在命令行运行,可以看到多了个commando模块下的hello_world模块
+
+````shell
+python manage.py
+output:
+[auth]
+    changepassword
+    createsuperuser
+
+[commando]
+    hello_world
+    vendor_pull
+
+[contenttypes]
+    remove_stale_contenttypes
+
+[django]
+    check
+    compilemessages
+    createcachetable
+    dbshell
+    diffsettings
+    dumpdata
+    flush
+    inspectdb
+    loaddata
+    makemessages
+    makemigrations
+    migrate
+    optimizemigration
+    sendtestemail
+    shell
+    showmigrations
+    sqlflush
+    sqlmigrate
+    sqlsequencereset
+    squashmigrations
+    startapp
+    startproject
+    test
+    testserver
+
+[sessions]
+    clearsessions
+
+[staticfiles]
+    collectstatic
+    findstatic
+    runserver
+````
+
+然后在src目录下创建我们的helpers文件夹，在其中创建init.py，downloader.py
+
+init.py
+
+```python
+from .downloader import download_to_local
+
+__all__ = ["download_to_local"]
+```
+
+downloader.py
+
+```python
+import requests
+from pathlib import Path
+
+def download_to_local(url:str,out_path:Path,parent_mkdir:bool=True):
+    if not isinstance(out_path,Path):
+        raise ValueError(
+            f"{out_path} must be a pathlib.Path object"
+        )
+    if parent_mkdir:
+        out_path.parent.mkdir(parents=True,exist_ok=True)
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        out_path.write_bytes(response.content)
+        return True
+    except requests.RequestException as e:
+        print(f"Error downloading {url} to {out_path}: {e}")
+        return False
+```
+
+然后回到commands文件夹再创建vendor_pull.py
+
+```python
+from django.core.management.base import BaseCommand
+import helpers
+from django.conf import settings
+
+import helpers.downloader
+VENDOR_STATICFILES = {
+    "flowbite.min.css":"https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css",
+    "flowbite.min.js":"https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"
+}
+
+
+STATICFILES_VENDOR_DIR = getattr(
+    settings,
+    'STATICFILES_VENDOR_DIR'
+)
+
+class Command(BaseCommand):
+    def handle(self, *args, **options):
+        self.stdout.write("Downloading vendor static files")
+        completed_urls = []
+        for name,url in VENDOR_STATICFILES.items():
+            out_path = STATICFILES_VENDOR_DIR / name
+            dl_success = helpers.downloader.download_to_local(url, out_path)
+            print(f"Downloading {name} from {url} ot {out_path}")
+            if dl_success:
+                completed_urls.append(url)
+            else:
+                self.stdout.write(
+                    self.style.ERROR(f"Failed to download {name} from {url}")
+                )
+        if set(completed_urls) == set(VENDOR_STATICFILES.values()):
+            self.stdout.write(
+                self.style.SUCCESS("All vendor static files downloaded")
+            )
+        else:
+            self.stdout.write(
+                self.style.WARNING("Some vendor static files failed to download")
+            )    
+```
+
+此时为防止我们的目录不存在，所以在settins.py修改代码如下
+
+```python
+STATIC_URL = "static/"
+STATICFILES_BASE_DIR = BASE_DIR/'static'
+STATICFILES_BASE_DIR.mkdir(exist_ok=True,parents=True)
+STATICFILES_VENDOR_DIR = STATICFILES_BASE_DIR/"vendors"
+```
+
+此时我们可以删掉static目录，然后在命令行输入
+
+```py
+python manage.py vendor_pull
+```
+
+可以看见它会自动创建statit目录并下载css，js文件
+
+然后在dockerfile文件中
+
+```dockerfile
+# Set the python version as a build-time argument
+# with Python 3.12 as the default
+ARG PYTHON_VERSION=3.12-slim-bullseye
+FROM python:${PYTHON_VERSION}
+
+# Create a virtual environment
+RUN python -m venv /opt/venv
+
+# Set the virtual environment as the current location
+ENV PATH=/opt/venv/bin:$PATH
+
+# Upgrade pip
+RUN pip install --upgrade pip
+
+# Set Python-related environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# Install os dependencies for our mini vm
+RUN apt-get update && apt-get install -y \
+    # for postgres
+    libpq-dev \
+    # for Pillow
+    libjpeg-dev \
+    # for CairoSVG
+    libcairo2 \
+    # other
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create the mini vm's code directory
+RUN mkdir -p /code
+
+# Set the working directory to that same code directory
+WORKDIR /code
+
+# Copy the requirements file into the container
+COPY requirements.txt /tmp/requirements.txt
+
+# copy the project code into the container's working directory
+COPY ./src /code
+
+# Install the Python project requirements
+RUN pip install -r /tmp/requirements.txt
+
+# database isn't available during build
+# run any other commands that do not need the database
+# such as:
+RUN python manage.py vendor_pull
+RUN python manage.py collectstatic --noinput
+
+# set the Django default project name
+ARG PROJ_NAME="cfehome"
+
+# create a bash script to run the Django project
+# this script will execute at runtime when
+# the container starts and the database is available
+RUN printf "#!/bin/bash\n" > ./paracord_runner.sh && \
+    printf "RUN_PORT=\"\${PORT:-8000}\"\n\n" >> ./paracord_runner.sh && \
+    printf "python manage.py migrate --no-input\n" >> ./paracord_runner.sh && \
+    printf "gunicorn ${PROJ_NAME}.wsgi:application --bind \"0.0.0.0:\$RUN_PORT\"\n" >> ./paracord_runner.sh
+
+# make the bash script executable
+RUN chmod +x paracord_runner.sh
+
+# Clean up apt cache to reduce image size
+RUN apt-get remove --purge -y \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Run the Django project via the runtime script
+# when the container starts
+CMD ./paracord_runner.sh
+```
+
