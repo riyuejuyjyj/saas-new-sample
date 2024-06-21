@@ -20,7 +20,7 @@ python manage.py runserver
 python manage.py startapp visits
 ```
 
-## 2.django 模板
+## 2.django 模板和静态文件
 
 ### a.模板渲染
 
@@ -124,6 +124,94 @@ urlpatterns = [
 
 {% endblock content%}
 ````
+
+### c.配置静态目录
+
++ 首先在src目录下创建static文件夹，在static内部再创建vendors文件夹存放我们flowbite的css和js
+
++ 在settins.py配置一下内容
+
+	```python
+	STATIC_URL = "static/"
+	STATICFILES_BASE_DIR = BASE_DIR/'static'
+	STATICFILES_VENDOR_DIR = STATICFILES_BASE_DIR/"vendors"
+	
+	
+	# source for collects
+	STATICFILES_DIRS = [
+	    STATICFILES_BASE_DIR
+	]
+	
+	# output for collects
+	# local cdn
+	STATIC_ROOT = BASE_DIR.parent/'local-cdn'
+	```
+	
++ 在templates目录下新建base文件夹，再新加上css.html,    js.html  ,   meta.html(==暂时为空==)
+
+	
+
+	css.html
+
+	```html
+	{% load static %}
+	<link href="{% static 'vendors/flowbite.min.css' %}" rel="stylesheet" />
+	```
+
+	js.html
+
+	```html
+	{% load static %}
+	<script src="{%  static 'vendors/flowbite.min.js'  %}"></script>
+	```
+	
++ 在templates创建nav文件夹，新建navbar.html
+
+	```html
+	
+	<nav class="bg-white border-gray-200 dark:bg-gray-900">
+	    <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
+	      <a href="https://flowbite.com/" class="flex items-center space-x-3 rtl:space-x-reverse">
+	          <img src="https://flowbite.com/docs/images/logo.svg" class="h-8" alt="Flowbite Logo" />
+	          <span class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">Flowbite</span>
+	      </a>
+	      <button data-collapse-toggle="navbar-default" type="button" class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-gray-500 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600" aria-controls="navbar-default" aria-expanded="false">
+	          <span class="sr-only">Open main menu</span>
+	          <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 17 14">
+	              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"/>
+	          </svg>
+	      </button>
+	      <div class="hidden w-full md:block md:w-auto" id="navbar-default">
+	        <ul class="font-medium flex flex-col p-4 md:p-0 mt-4 border border-gray-100 rounded-lg bg-gray-50 md:flex-row md:space-x-8 rtl:space-x-reverse md:mt-0 md:border-0 md:bg-white dark:bg-gray-800 md:dark:bg-gray-900 dark:border-gray-700">
+	          <li>
+	            <a href="#" class="block py-2 px-3 text-white bg-blue-700 rounded md:bg-transparent md:text-blue-700 md:p-0 dark:text-white md:dark:text-blue-500" aria-current="page">Home</a>
+	          </li>
+	          <li>
+	            <a href="#" class="block py-2 px-3 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">About</a>
+	          </li>
+	          <li>
+	            <a href="#" class="block py-2 px-3 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">Services</a>
+	          </li>
+	          <li>
+	            <a href="#" class="block py-2 px-3 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">Pricing</a>
+	          </li>
+	          <li>
+	            <a href="#" class="block py-2 px-3 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:border-0 md:hover:text-blue-700 md:p-0 dark:text-white md:dark:hover:text-blue-500 dark:hover:bg-gray-700 dark:hover:text-white md:dark:hover:bg-transparent">Contact</a>
+	          </li>
+	        </ul>
+	      </div>
+	    </div>
+	  </nav>
+	  
+	```
+	
++ 在base.html中include,效果如下
+
+	```html
+	{% include 'nav/navbar.html' %}
+	```
+
+	![image-20240620172714153](C:/Users/桐/AppData/Roaming/Typora/typora-user-images/image-20240620172714153.png)
 
 ## 3 .上传到GitHub
 
@@ -528,17 +616,50 @@ git remote add origin https://github.com/riyuejuyjyj/saas-rnd-sample.git
 git push -u origin main
 ```
 
-## 4.部署到railway
+## 4.配置环境变量和远程postgresql数据库
 
-首先修改一下settings.py
+在requirements.txt中新增一下依赖
 
-```python
-DEBUG = True
-ALLOWED_HOSTS = [
-    ".railway.app" # https://saas.prod.railway.app
-]
-
-if DEBUG:
-    ALLOWED_HOSTS.append("127.0.0.1")
+```txt
+gunicorn
+python-decouple
+psycopg[binary]
+dj-database-url
 ```
 
+在根目录下创建.env文件==数据的链接下面展示==
+
+```python
+# dotenv
+DJANGO_DEBUG=True
+DJANGO_SECRET_KEY='django-insecure-(k=ht&acl(yf56cxxi(&dv#u-!^0nu^x@-3rtvro3&y811-e!('
+#(生产数据库)DATABASE_URL='postgresql://neondb_owner:XiAv0WZBm6fd@ep-wispy-smoke-a1f8lrb9.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+#测试数据库dev
+DATABASE_URL ='postgresql://neondb_owner:XiAv0WZBm6fd@ep-empty-forest-a1ks4jcq.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
+CONN_MAX_AGE=60
+```
+
+进入到src目录下cfehome的settings.py中添加一下内容
+
+```python
+# 导入
+from decouple import config
+import dj_database_url
+
+SECRET_KEY = config('DJANGO_SECRET_KEY')
+DEBUG = config("DJANGO_DEBUG", default=True, cast=bool)
+
+CONN_MAX_AGE = config("CONN_MAX_AGE", default=60, cast=int)
+DATABASE_URL = config("DATABASE_URL",default=None,cast=str)
+if DATABASE_URL is not None:
+    import dj_database_url
+    DATABASES = {
+    "default": dj_database_url.config(
+        default=DATABASE_URL,
+        conn_health_checks=True,
+        conn_max_age=CONN_MAX_AGE,
+    )
+}
+```
+
+进入https://console.neon.tech/，创建后数据库以后将其url粘贴到DATABASE_URL，再创建一个dev分支用于本地测试使用，main用于部署使用

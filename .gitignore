@@ -1,4 +1,7 @@
 # Byte-compiled / optimized / DLL files
+# 忽略打包生成的静态文件
+local-cdn/
+
 __pycache__/
 *.py[cod]
 *$py.class

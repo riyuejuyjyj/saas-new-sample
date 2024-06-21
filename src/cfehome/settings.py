@@ -9,8 +9,9 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
-
+from decouple import config
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,11 +21,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-(k=ht&acl(yf56cxxi(&dv#u-!^0nu^x@-3rtvro3&y811-e!("
-
+#SECRET_KEY = "django-insecure-(k=ht&acl(yf56cxxi(&dv#u-!^0nu^x@-3rtvro3&y811-e!("
+SECRET_KEY = config("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
+DEBUG = config("DJANGO_DEBUG", default=True, cast=bool)
+print(DEBUG,type(DEBUG))
 ALLOWED_HOSTS = [
     ".railway.app" # https://saas.prod.railway.app
 ]
@@ -32,6 +33,7 @@ ALLOWED_HOSTS = [
 if DEBUG:
     ALLOWED_HOSTS.append("127.0.0.1")
     ALLOWED_HOSTS.append("localhost")
+    
 
 
 # Application definition
@@ -44,7 +46,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # my-apps
-    "visits"
+    "visits",
+    "commando"
 ]
 
 MIDDLEWARE = [
@@ -88,6 +91,18 @@ DATABASES = {
     }
 }
 
+CONN_MAX_AGE = config("CONN_MAX_AGE", default=60, cast=int)
+DATABASE_URL = config("DATABASE_URL",default=None,cast=str)
+if DATABASE_URL is not None:
+    import dj_database_url
+    DATABASES = {
+    "default": dj_database_url.config(
+        default=DATABASE_URL,
+        conn_health_checks=True,
+        conn_max_age=CONN_MAX_AGE,
+    )
+}
+    
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -118,6 +133,21 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATICFILES_BASE_DIR = BASE_DIR/'static'
+STATICFILES_BASE_DIR.mkdir(exist_ok=True,parents=True)
+STATICFILES_VENDOR_DIR = STATICFILES_BASE_DIR/"vendors"
+
+
+# source for collects
+STATICFILES_DIRS = [
+    STATICFILES_BASE_DIR
+]
+
+# output for collects
+# local cdn
+STATIC_ROOT = BASE_DIR.parent/'local-cdn'
+
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
